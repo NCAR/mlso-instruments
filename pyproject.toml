@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlso-instruments"
+version = "1.0.0"
+description = "Python package providing a library of utlities for Mauna Loa Solar Observatory (MLSO) instruments"
+authors = [
+  { name = "Michael Galloy" },
+  { name = "Michael Galloy", email = "mgalloy@ucar.edu" },
+]
+maintainers = [
+  { name = "Michael Galloy" },
+  { name = "Michael Galloy", email = "mgalloy@ucar.edu" },
+]
+license = "MIT"
+#license = {text = "MIT"}
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.9"
+# see classifiers at https://pypi.org/classifiers/
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: English",
+  "Programming Language :: Python",
+]
+keywords = ["Mauna Loa Solar Observatory", "MLSO", "solar"]
+dependencies = [
+  "astropy",
+  "numpy",
+]
+
+[project.urls]
+homepage = "https://www2.hao.ucar.edu/mlso"
+repository = "https://github.com/NCAR/mlso-instruments"
+documentation = "https://mlso-instruments.readthedocs.io/en/latest/"
+issues = "https://github.com/NCAR/mlso-instruments/issues"
+changelog = "https://github.com/NCAR/mlso-instruments/blob/master/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+  "build",
+  "pytest",
+  "pytest-cov",
+  "pre-commit",
+  "tox",
+  "wheel",
+  "watchdog",
+  "Sphinx",
+  "twine",
+  "coverage",
+  "flake8",
+  "pytest-runner",
+  "black",
+  "sphinx_rtd_theme",
+  "myst-parser",
+]
+
+[project.scripts]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  | foo.py           # also separately exclude a file named foo.py in
+                     # the root of the project
+)
+'''
+
+[tool.pytest.ini_options]
+# increment the --cov-fail-under as we increase test coverage
+addopts = "--cov-report html:coverage_html --cov-report term-missing --cov-fail-under 80"
