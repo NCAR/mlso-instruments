@@ -46,9 +46,6 @@ allow changes to the code to automatically be used:
 pip install -e .[dev]
 ```
 
-For IDL, simply put the `idl/` directory in your `IDL_PATH`.
-
-
 ## Usage
 
 See the [documentation] for help on using the package, including the API
