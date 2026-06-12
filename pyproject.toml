@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlso-instruments"
-version = "1.0.0"
+version = "0.0.2"
 description = "Python package providing a library of utlities for Mauna Loa Solar Observatory (MLSO) instruments"
 authors = [
   { name = "Michael Galloy" },
