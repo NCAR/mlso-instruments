@@ -235,7 +235,7 @@ def ucomp_loadct(
     register_ucomp_colormap(rgb, name="ucomp_current")
     return rgb
 
-def ucomp_l2_map(ucomp_filename, data_product_type): 
+def ucomp_l2_map(ucomp_filename: str, data_product_type: str): 
     """ 
     Function to grab ucomp_time and ucomp_map for Level 2 data product
     Inputs: 
@@ -333,7 +333,7 @@ def ucomp_l2_map(ucomp_filename, data_product_type):
     
     return ucomp_time, ucomp_map
 
-def ucomp_l2_normalization_parameters(wavelength, data_product_type): 
+def ucomp_l2_normalization_parameters(wavelength: int, data_product_type: str): 
     """ 
     Input: wavelength (int), data_product_type (str)
     Output: display min, max, gamma, and power
