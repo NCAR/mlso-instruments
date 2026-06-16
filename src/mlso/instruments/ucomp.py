@@ -235,11 +235,12 @@ def ucomp_loadct(
     register_ucomp_colormap(rgb, name="ucomp_current")
     return rgb
 
-def ucomp_l2_map(ucomp_filename: str, data_product_type: str): 
+def ucomp_l2_map(ucomp_filename: str, wavelength: int, data_product_type: str): 
     """ 
     Function to grab ucomp_time and ucomp_map for Level 2 data product
     Inputs: 
         - ucomp_filename (str), found using mlso api
+        - wavelength (int), in nm 
         - data_product_type (str), chosen from UCoMP data user's guide 
     Outputs: 
         - ucomp_time (datetime object)
