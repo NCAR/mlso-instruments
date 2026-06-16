@@ -3,6 +3,10 @@
 import astropy.io.fits as fits
 import numpy as np
 import matplotlib 
+import copy
+from astropy.time import Time
+import sunpy
+from sunpy.map import Map
 from matplotlib.colors import ListedColormap
 from matplotlib.colors import LinearSegmentedColormap
 
