@@ -70,7 +70,7 @@ def make_ucomp_radialazimuth_cmap(ncolors=256):
     cmap.set_bad("black")
     return cmap
 
-def mg_makect(rgb_start, rgb_mid, rgb_end, ncolors=256):
+def makect(rgb_start, rgb_mid, rgb_end, ncolors=256):
     """
     Python equivalent of IDL mg_makect:
       Create a 3-segment linear colormap from start → mid → end.
@@ -204,13 +204,13 @@ def ucomp_loadct(
         rgb = _load_builtin_matplotlib_table(16, ncolors)
 
     elif name == "doppler":
-        rgb = mg_makect(blue, white, red, ncolors=ncolors)
+        rgb = makect(blue, white, red, ncolors=ncolors)
 
     elif name == "line_width":
         rgb = _load_builtin_matplotlib_table(12, ncolors)
 
     elif name == "difference":
-        rgb = mg_makect(cyan, black, pink, ncolors=ncolors)
+        rgb = makect(cyan, black, pink, ncolors=ncolors)
 
     else:
         raise ValueError(f"Unknown color table name: {name}")
@@ -239,7 +239,7 @@ def ucomp_loadct(
     register_ucomp_colormap(rgb, name="ucomp_current")
     return rgb
 
-def ucomp_l2_map(ucomp_filename: str, wavelength: int, data_product_type: str): 
+def l2_map(ucomp_filename: str, wavelength: int, data_product_type: str): 
     """ 
     Function to grab ucomp_time and ucomp_map for Level 2 data product
     Inputs: 
@@ -338,7 +338,7 @@ def ucomp_l2_map(ucomp_filename: str, wavelength: int, data_product_type: str):
     
     return ucomp_time, ucomp_map
 
-def ucomp_l2_normalization_parameters(wavelength: int, data_product_type: str): 
+def l2_normalization_parameters(wavelength: int, data_product_type: str): 
     """ 
     Input: wavelength (int), data_product_type (str)
     Output: display min, max, gamma, and power
