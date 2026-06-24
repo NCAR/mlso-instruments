@@ -7,6 +7,7 @@ import copy
 from astropy.time import Time
 import sunpy
 from sunpy.map import Map
+import matplotlib.pyplot as plt 
 from matplotlib.colors import ListedColormap
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -22,7 +23,6 @@ def display(filename: str, extension=None):
     with fits.open(filename) as file:
         # [TODO]: if needed, identify file type to get default extension
         display_hdu(file[extension])
-
 
 # --------------- level 2 displays ---------------------
 def _normalize_rgb_table(rgb):
@@ -532,3 +532,202 @@ def l2_normalization_parameters(wavelength: int, data_product_type: str):
     else: 
         print('wavelength requested not in mapping, defaulting to 1074 values')
         return mapping[1074], rgb
+
+# --------------- level 1 displays ---------------------
+
+def l1_data(ucomp_filename: str):
+    """
+    from a ucomp filename, construct: 
+    - list of IQUV datasets
+    - list of background datasets 
+    - list of wavelengths (default is three but may be more) 
+    - datetime object ucomp_time  
+    """
+    with fits.open(ucomp_filename) as ucomp_hdul:
+        ucomp_hdul.info()
+        num_entries = len(ucomp_hdul)-1
+        print('There are '+str(num_entries//2)+' wavelengths in this level 1 file.')
+        
+        # data - no background, can be variable wavelengths 
+        iquv_data, bkg_data = [], [] 
+        iquv_header, bkg_header = [], [] 
+        wavelengths = [] 
+        ucomp_primary_header = ucomp_hdul[0].header
+        for i in range(num_entries//2):
+            iquv_data.append(ucomp_hdul[i+1].data)
+            bkg_data.append(ucomp_hdul[num_entries//2+i+1].data)
+            iquv_header.append(ucomp_hdul[i+1].header)
+            bkg_header.append(ucomp_hdul[num_entries//2+i+1].header)
+            wavelengths.append(ucomp_hdul[i+1].name[20:-1])
+        
+    # grab time 
+    ucomp_time = Time(ucomp_primary_header['DATE-OBS'])
+    
+    return iquv_data, bkg_data, wavelengths, ucomp_time
+
+def l1_normalization_parameters(wavelength: int, data_product: str): 
+    """
+    Input: wavelength (int), data_product (str) - I, Q, U, V, or B 
+    Output: display min, max, gamma, power, rgb, ionization 
+    Will also create a color table to be used called ucomp_current
+    """
+    if wavelength == 1074: 
+        mapping = {'I': [0.0, 40.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'Fe XIII'
+    elif wavelength == 1079: 
+        mapping = {'I': [0.0, 20.0, 0.7, 0.7], 
+                   'Q': [-0.2, 0.2, 1.0, 1.0], 
+                   'U': [-0.2, 0.2, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 11.0, 0.7, 0.7]}
+        ionization = 'Fe XIII'
+    elif wavelength == 1083: 
+        mapping = {'I': [0.0, 1500.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 11.0, 0.7, 0.7]}
+        ionization = 'He I'
+    elif wavelength == 530: 
+        mapping = {'I': [0.3, 80.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 11.0, 0.7, 0.7]}
+        ionization = 'Fe XIV'
+    elif wavelength == 637: 
+        mapping = {'I': [0.0, 15.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 22.0, 0.7, 0.7]}
+        ionization = 'Fe X'
+    elif wavelength == 656: 
+        mapping = {'I': [0.0, 800.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'H I'
+    elif wavelength == 670: 
+        mapping = {'I': [0.0, 10.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'Ni XV'
+    elif wavelength == 691: 
+        mapping = {'I': [0.0, 3.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'Ar XI'
+    elif wavelength == 706: 
+        mapping = {'I': [0.0, 3.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'Fe XV'
+    elif wavelength == 761: 
+        mapping = {'I': [0.0, 10.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'S XII'
+    elif wavelength == 789: 
+        mapping = {'I': [0.0, 15.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 15.0, 0.7, 0.7]}
+        ionization = 'Fe XI'
+    elif wavelength == 802: 
+        mapping = {'I': [0.0, 10.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'Ni XV'
+    elif wavelength == 991:
+        mapping = {'I': [0.0, 15.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'S VIII'
+    else: 
+        print('wavelength requested not in mapping, defaulting to 1074 values')
+        mapping = {'I': [0.0, 40.0, 0.7, 0.7], 
+                   'Q': [-1.0, 1.0, 1.0, 1.0], 
+                   'U': [-1.0, 1.0, 1.0, 1.0],
+                   'V': [-1.0, 1.0, 1.0, 1.0], 
+                   'B': [0.0, 10.0, 0.7, 0.7]}
+        ionization = 'Fe XIII'
+        
+    # color table 
+    from ucomp_colortables2 import ucomp_loadct
+    colortable_dict = {'I': 'intensity', 
+                       'Q': 'quv', 
+                       'U': 'quv', 
+                       'V': 'quv', 
+                       'B': 'background'} 
+    rgb = ucomp_loadct(colortable_dict[data_product]) 
+        
+    return mapping[data_product], rgb, ionization 
+        
+
+def signed_power(x, power):
+    """
+    used to scale level 1 images appropriately (as close as possible to IDL) 
+    """
+    return np.sign(x) * np.abs(x)**power
+
+def l1_scale_image(im, display_min, display_max, power):
+    """
+    scale level 1 images 
+    Inputs: im (image, numpy array), display min, display max, and power
+    """
+    vmin = signed_power(display_min, power)
+    vmax = signed_power(display_max, power)
+    scaled = np.clip((signed_power(im, power) - signed_power(vmin, power)) / (signed_power(vmax, power) - signed_power(vmin, power)), 0, 1)   
+    return scaled
+
+def l1_mosiac_image(iquv_data, ucomp_time, wvs, wavelength, img_type): 
+    fig, ax = plt.subplots(4, 3, figsize=(8,9))
+    products = ['I', 'Q', 'U', 'V']
+
+    # loop over products
+    for i in range(4):
+        data_product = products[i]
+        [vmin, vmax, gamma, power], rgb, ionization = l1_normalization_parameters(wavelength, data_product)
+        
+        # loop over wavelengths 
+        for j in range(3):
+            wv = wvs[j]
+            img = iquv_data[j][i,:,:]
+            scaled = l1_scale_image(img, vmin, vmax, power)
+            
+            ax[i,j].imshow(scaled, origin="lower", cmap='ucomp_current', vmin=0, vmax=1, aspect='auto')
+            ax[i,j].axis('off')
+            ax[i,j].set_xticks([])
+            ax[i,j].set_yticks([])
+            
+            if i == 0: 
+                ax[i,j].set_title(wv, y=0.9, color='white', va='center', ha='center', fontsize=8)
+            if j == 0: 
+                ax[i,j].text(0.05, 0.5, data_product, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[i,j].transAxes)
+            
+                
+    fig.subplots_adjust(left=0, right=1, top=0.96, bottom=0, wspace=0, hspace=0)
+    utc_string = ucomp_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    plt.suptitle('UCoMP Level 1 - '+img_type, y=0.98, fontsize=12)   
+    ax[0,0].text(0.05, 0.92, ionization+'\n'+ str(wavelength)+' nm', rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[0,0].transAxes)
+    ax[0,0].text(0.05, 0.05, utc_string, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[0,0].transAxes)
+    plt.show()
