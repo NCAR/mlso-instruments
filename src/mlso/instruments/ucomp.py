@@ -731,3 +731,41 @@ def l1_mosiac_image(iquv_data, ucomp_time, wvs, wavelength, img_type):
     ax[0,0].text(0.05, 0.92, ionization+'\n'+ str(wavelength)+' nm', rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[0,0].transAxes)
     ax[0,0].text(0.05, 0.05, utc_string, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[0,0].transAxes)
     plt.show()
+
+# --------------- level 3 displays ---------------------
+def l3_map(ucomp_filename: str):
+    """
+    Function to grab ucomp_time and ucomp_map for Level 3 density
+    Inputs:
+        - ucomp_filename (str), found using mlso api
+    Outputs:
+        - ucomp_time (datetime object)
+        - ucomp_map
+    """
+    with fits.open(ucomp_filename) as ucomp_hdul:
+        ucomp_hdul.info()
+        
+        # data 
+        ucomp_density = ucomp_hdul[1].data
+        ucomp_peak_intensity_1074 = ucomp_hdul[2].data
+        ucomp_peak_intensity_1079 = ucomp_hdul[3].data
+
+        # header 
+        ucomp_primary_header = ucomp_hdul[0].header
+        ucomp_density_header = ucomp_hdul[1].header
+        ucomp_peak_intensity_1074_header = ucomp_hdul[2].header
+        ucomp_peak_intensity_1079_header = ucomp_hdul[3].header
+
+    # adjust header info 
+    ucomp_primary_header_naxis = copy.deepcopy(ucomp_primary_header)
+    ucomp_primary_header_naxis["NAXIS1"] = ucomp_density_header["NAXIS1"]
+    ucomp_primary_header_naxis["NAXIS2"] = ucomp_density_header["NAXIS2"]
+    del ucomp_primary_header_naxis["NAXIS"]
+
+    # grab time
+    ucomp_time = Time(ucomp_primary_header['DATE-OBS'])
+
+    # then create map
+    ucomp_map = Map(np.log10(ucomp_density), ucomp_primary_header)
+    
+    return ucomp_time, ucomp_map 
