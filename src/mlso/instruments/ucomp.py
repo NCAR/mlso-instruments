@@ -699,37 +699,58 @@ def l1_scale_image(im, display_min, display_max, power):
     scaled = np.clip((signed_power(im, power) - signed_power(vmin, power)) / (signed_power(vmax, power) - signed_power(vmin, power)), 0, 1)   
     return scaled
 
-def l1_mosiac_image(iquv_data, ucomp_time, wvs, wavelength, img_type): 
-    fig, ax = plt.subplots(4, 3, figsize=(8,9))
+def l1_mosiac_image(iquv_data, ucomp_time, wvs, wavelength, img_type):
+    """ 
+    Plot the mosaic of IQUV for varying wavelengths in level 1 data 
+    inputs: 
+    - iquv_data: list of datasets, pulled from l1_data
+    - ucomp_time: datetime object, pulled from l1_data 
+    - wvs: list of strings with wavelength names, pulled from l1_data 
+    - wavelength: int of wavelength used when searching for file 
+    - img_type: string, mean or median 
+    note: will plot up to 9 wavelengths, even if there are more in iquv_data
+    """
+    n_wavelengths = len(iquv_data) 
+    if n_wavelengths < 10: 
+        fig, ax = plt.subplots(4, n_wavelengths, figsize=(2.5*n_wavelengths,9))
+        ftsz1, ftsz2 = 12, 8 
+    else: 
+        print('only plotting the central 9 wavelengths of '+str(n_wavelengths))
+        n_wavelengths = 9 
+        fig, ax = plt.subplots(4, 9, figsize=(3*n_wavelengths,2.*n_wavelengths))
+        half_point = n_wavelengths // 2 + 1 
+        iquv_data = iquv_data[half_point-4:half_point+5]
+        wvs = wvs[half_point-4:half_point+5] 
+        ftsz1, ftsz2 = 24, 13
     products = ['I', 'Q', 'U', 'V']
 
     # loop over products
     for i in range(4):
         data_product = products[i]
         [vmin, vmax, gamma, power], rgb, ionization = l1_normalization_parameters(wavelength, data_product)
-        
-        # loop over wavelengths 
-        for j in range(3):
+
+        # loop over wavelengths
+        for j in range(n_wavelengths):
             wv = wvs[j]
             img = iquv_data[j][i,:,:]
             scaled = l1_scale_image(img, vmin, vmax, power)
-            
+
             ax[i,j].imshow(scaled, origin="lower", cmap='ucomp_current', vmin=0, vmax=1, aspect='auto')
             ax[i,j].axis('off')
             ax[i,j].set_xticks([])
             ax[i,j].set_yticks([])
-            
-            if i == 0: 
-                ax[i,j].set_title(wv, y=0.9, color='white', va='center', ha='center', fontsize=8)
-            if j == 0: 
-                ax[i,j].text(0.05, 0.5, data_product, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[i,j].transAxes)
-            
-                
+
+            if i == 0:
+                ax[i,j].set_title(wv, y=0.9, color='white', va='center', ha='center', fontsize=ftsz2)
+            if j == 0:
+                ax[i,j].text(0.05, 0.5, data_product, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=ftsz2, transform=ax[i,j].transAxes)
+
+
     fig.subplots_adjust(left=0, right=1, top=0.96, bottom=0, wspace=0, hspace=0)
     utc_string = ucomp_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-    plt.suptitle('UCoMP Level 1 - '+img_type, y=0.98, fontsize=12)   
-    ax[0,0].text(0.05, 0.92, ionization+'\n'+ str(wavelength)+' nm', rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[0,0].transAxes)
-    ax[0,0].text(0.05, 0.05, utc_string, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=8, transform=ax[0,0].transAxes)
+    plt.suptitle('UCoMP Level 1 - '+img_type, y=0.98, fontsize=ftsz1)
+    ax[0,0].text(0.05, 0.92, ionization+'\n'+ str(wavelength)+' nm', rotation='horizontal', color = 'white', verticalalignment='center', fontsize=ftsz2, transform=ax[0,0].transAxes)
+    ax[0,0].text(0.05, 0.05, utc_string, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=ftsz2, transform=ax[0,0].transAxes)
     plt.show()
 
 # --------------- level 3 displays ---------------------
