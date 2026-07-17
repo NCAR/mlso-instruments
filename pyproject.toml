@@ -30,6 +30,7 @@ classifiers = [
 keywords = ["Mauna Loa Solar Observatory", "MLSO", "solar"]
 dependencies = [
   "astropy",
+  "epochs",
   "numpy",
 ]
 
