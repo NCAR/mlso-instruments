@@ -54,9 +54,11 @@ def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data):
         vmax = get('display_max', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         gamma = get('display_gamma', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         
-    # the diff images I'm not so sure of... 
+    # the diff images
     else: 
-        print('still need to figure out diff images')
+        vmin = kcor.get('display_difference_min', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
+        vmax = kcor.get('display_difference_max', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
+        gamma = 1.0
         
     return vmin, vmax, gamma 
 
