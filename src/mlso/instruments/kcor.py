@@ -8,7 +8,7 @@ import epochs
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, FFMpegWriter
-from astropy.visualization import ImageNormalize, PowerStretch
+from astropy.visualization import ImageNormalize, PowerStretch, AsinhStretch
  
 
 # for epoch files to be read correctly 
@@ -44,8 +44,11 @@ def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data):
 
     # any nrgf data products use a min/max from the data, and no gamma correction (achieved by setting gamma to 1)
     if data_product_type == 'nrgf' or data_product_type == 'nrgfavg' or data_product_type == 'nrgfextavg' or data_product_type == 'nrgfavgenh' or data_product_type == 'nrgfextavgenh':
-        vmin = np.min(kcor_data)
-        vmax = np.max(kcor_data)
+        data = kcor_data.copy() 
+        data[data <= -10] = np.nan # remove -10 pixel vals before finding min 
+        np.nanmin(data)
+        vmin = np.nanmin(data)
+        vmax = np.nanmax(data)
         gamma = 1.0 
         
     # any pb data products min/max/gamma needs to be pulled from the epoch files as they are date dependent 
@@ -108,4 +111,88 @@ def multiframe_animation(kcor_map_ls: list, data_product_type: str):
     plt.close(fig) # Closes the static image plot frame so it doesn't leak memory
     print(f"Finished, mp4 file saved: {fname}")
 
+    return fname
+
+
+def multiframe_composite_animation(kcor_map_ls: list, aia_map_ls: list, data_product_type: str):
+    """
+    function that takes numerous sequential kcor images and AIA images, and produces/saves an MP4
+    Inputs: kcor_map_ls (list of kcor SunPy Maps), aia_map_ls (list of reprojected AIA maps), data_product_type (str)
+    Outputs: fname (str, filename of saved .mp4)
+    """
+    if len(kcor_map_ls) != len(aia_map_ls):
+        raise ValueError("kcor_map_ls and aia_map_ls must have equal length.")
+
+    num_frames = len(kcor_map_ls)
+    m0_kcor = kcor_map_ls[0]
+
+    print("Pre-reprojecting AIA maps onto KCor coordinate system...")
+    aia_reprojected_ls = [
+        aia.reproject_to(kcor.wcs) for aia, kcor in zip(aia_map_ls, kcor_map_ls)
+    ]
+
+    # Create base figure explicitly managed by pyplot
+    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw={'projection': m0_kcor})
+
+    # Prepare frame 0 normalization
+    m0_aia = aia_reprojected_ls[0]
+    vmin, vmax, gamma = l2_normalization_parameters(data_product_type, m0_kcor.date, m0_kcor.data)
+    
+    kcor_norm = ImageNormalize(m0_kcor.data, stretch=PowerStretch(gamma), vmin=vmin, vmax=vmax)
+    aia_norm = ImageNormalize(m0_aia.data, stretch=AsinhStretch(), vmin=0)
+
+    # Render base layers static plots on Frame 0
+    kcor_map_ls[0].plot(axes=ax, norm=kcor_norm)
+    m0_aia.plot(axes=ax, cmap='sdoaia193', norm=aia_norm, autoalign=True)
+
+    # Grab the two underlying image artists directly
+    images = ax.get_images()
+    kcor_im, aia_im = images[0], images[1]
+
+    # Set up fixed frame bounds & labels
+    ax.set_xlabel('Helioprojective Longitude (Solar-X, arcsec)')
+    ax.set_ylabel('Helioprojective Latitude (Solar-Y, arcsec)')
+    ax.coords[0].set_ticks(number=10)
+    ax.coords[1].set_ticks(number=10)
+    
+    wavelnth = m0_kcor.meta.get('wavelnth', '')
+    title_text = ax.set_title(
+        f"Frame 1/{num_frames} - AIA 193 & KCor {wavelnth} nm ({data_product_type})\n{m0_kcor.date}"
+    )
+
+    def update_frame(frame_idx):
+        kcor_map = kcor_map_ls[frame_idx]
+        aia_reprojected = aia_reprojected_ls[frame_idx]
+
+        # Calculate dynamic normalization
+        vmin, vmax, gamma = l2_normalization_parameters(data_product_type, kcor_map.date, kcor_map.data)
+        
+        knorm = ImageNormalize(kcor_map.data, stretch=PowerStretch(gamma), vmin=vmin, vmax=vmax)
+        anorm = ImageNormalize(aia_reprojected.data, stretch=AsinhStretch(), vmin=0)
+
+        # Update layer array data & norms directly (No pyplot or ax.clear calls)
+        kcor_im.set_array(kcor_map.data)
+        kcor_im.set_norm(knorm)
+
+        aia_im.set_array(aia_reprojected.data)
+        aia_im.set_norm(anorm)
+
+        # Update title text
+        wl = kcor_map.meta.get('wavelnth', '')
+        title_text.set_text(
+            f"Frame {frame_idx + 1}/{num_frames} - AIA 193 & KCor {wl} nm ({data_product_type})\n{kcor_map.date}"
+        )
+
+        return [kcor_im, aia_im, title_text]
+
+    print("Compiling composite animation frames into MP4 video file...")
+    ani = FuncAnimation(fig, update_frame, frames=num_frames, interval=200, blit=False)
+
+    writer = FFMpegWriter(fps=5, metadata=dict(artist='SunPy'), bitrate=2000)
+    fname = f"composite_{data_product_type}_frames_{m0_kcor.date.strftime('%Y%m%d.%H%M%S')}.mp4"
+    
+    ani.save(fname, writer=writer)
+    plt.close(fig)
+    
+    print(f"Finished, composite mp4 file saved: {fname}")
     return fname

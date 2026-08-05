@@ -332,9 +332,13 @@ def l2_map(ucomp_filename: str, wavelength: int, data_product_type: str):
     # grab time
     ucomp_time = Time(ucomp_primary_header['DATE-OBS'])    
 
-    # then create map 
-    masked_data = np.ma.masked_where(ucomp_mask == 0, data)
-    ucomp_map = Map(masked_data * ucomp_mask, ucomp_primary_header)
+    # then create map - change this so intensity products (just top 3) are NOT masked 
+    intensities = ['Center wavelength intensity', 'Enhanced intensity', 'Peak intensity']
+    if data_product_type not in intensities: 
+        masked_data = np.ma.masked_where(ucomp_mask == 0, data)
+        ucomp_map = Map(masked_data * ucomp_mask, ucomp_primary_header)
+    else: 
+        ucomp_map = Map(data, ucomp_primary_header)    
     
     return ucomp_time, ucomp_map
 
