@@ -7,9 +7,12 @@ from typing import TypeVar
 import epochs
 import numpy as np
 import matplotlib.pyplot as plt
+import imageio_ffmpeg
+from sunpy.map import Map
+from astropy.time import Time
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from astropy.visualization import ImageNormalize, PowerStretch, AsinhStretch
- 
+plt.rcParams['animation.ffmpeg_path'] = imageio_ffmpeg.get_ffmpeg_exe() 
 
 # for epoch files to be read correctly 
 DateValue = TypeVar("DateValue", str, datetime.datetime)
@@ -31,13 +34,14 @@ def get(property_name, date: DateValue):
     """Get property value for a given datetime."""
     return ep.get(property_name, date)
 
-# function to get the correct vmin, vmax, and gamma for plotting 
-def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data):
+# function to get the correct vmin, vmax, and scaled data for plotting 
+def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data, kcor_header):
     """ 
     function for getting normalization plotting parameters for level 2 kcor data 
     Input: data_product_type (str), kcor_time (datetime object from file header), kcor_data (array from file)
     Output: display min, max, gamma 
     """
+    display_factor = 1.0e6
 
     # note: kcor_time will be in UTC, while the epoch files are in HST (a different of 10 hours) 
     kcor_time_hst = kcor_time - timedelta(hours=10)
@@ -50,35 +54,49 @@ def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data):
         vmin = np.nanmin(data)
         vmax = np.nanmax(data)
         gamma = 1.0 
+        kcor_map = Map(kcor_data, kcor_header)
         
     # any pb data products min/max/gamma needs to be pulled from the epoch files as they are date dependent 
+    # need an exponent display_exp in config file - raise image to exponent, and min and max to exponent 
+    # ***** need to be careful about negative values in the image (maybe provide a threshold), display_min can also be negative 
     elif data_product_type == 'pb' or data_product_type == 'pbavg' or data_product_type == 'pbextavg' or data_product_type == 'pbavgenh' or data_product_type == 'pbextavgenh':
         vmin = get('display_min', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         vmax = get('display_max', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         gamma = get('display_gamma', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
+        display_exp = 0.7
+        vmin = max(0, display_factor * vmin)
+        vmax = max(0, display_factor * vmax)
+        gamma *= display_exp
+
+        # also need to scale and clip data
+        data = kcor_data.copy()
+        data_scaled = display_factor * kcor_header['BSCALE'] * data
+        data_clean = np.clip(data_scaled, 0, None)
+        kcor_map = Map(data_clean, kcor_header)
         
     # the diff images
     else: 
         vmin = kcor.get('display_difference_min', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         vmax = kcor.get('display_difference_max', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         gamma = 1.0
+        kcor_map = Map(kcor_data, kcor_header)
         
-    return vmin, vmax, gamma 
+    return vmin, vmax, gamma, kcor_map 
 
 
 
-def multiframe_animation(kcor_map_ls: list, data_product_type: str): 
+def multiframe_animation(kcor_data_ls: list, kcor_header_ls: list, data_product_type: str): 
     """
     function that takes numerous sequential kcor images and produces/saves an MP4
-    Inputs: kcor_map_ls (list of kcor SunPy Maps), data_product_type (str) 
+    Inputs: kcor_data_ls (list of kcor data from fts), kcor_header_ls (list of kcor header from fts), data_product_type (str)
     Outputs: fname (str, filename of saved .mp4) 
     """
     # standard structural setup
-    fig, ax = plt.subplots(figsize=(13, 7), subplot_kw={'projection': kcor_map_ls[0]})
-    num_frames = len(kcor_map_ls)
-
-    m0 = kcor_map_ls[0]
-    vmin, vmax, gamma = l2_normalization_parameters(data_product_type, m0.date, m0.data)
+    d0 = kcor_data_ls[0]
+    h0 = kcor_header_ls[0]
+    vmin, vmax, gamma, m0 = l2_normalization_parameters(data_product_type, Time(h0['DATE-OBS']), d0, h0)
+    fig, ax = plt.subplots(figsize=(13, 7), subplot_kw={'projection': m0})
+    num_frames = len(kcor_data_ls)
     initial_norm = ImageNormalize(m0.data, stretch=PowerStretch(gamma), vmin=vmin, vmax=vmax)
 
     im = m0.plot(axes=ax, norm=initial_norm)
@@ -90,10 +108,11 @@ def multiframe_animation(kcor_map_ls: list, data_product_type: str):
 
     # sequential animator loop
     def update_frame(frame_idx):
-        smap = kcor_map_ls[frame_idx]
+        sdata = kcor_data_ls[frame_idx]
+        sheader = kcor_header_ls[frame_idx]
         
         # grab normalization for each frame
-        vmin, vmax, gamma = l2_normalization_parameters(data_product_type, smap.date, smap.data)
+        vmin, vmax, gamma, smap = l2_normalization_parameters(data_product_type, Time(sheader['DATE-OBS']), sdata, sheader)
         norm = ImageNormalize(smap.data, stretch=PowerStretch(gamma), vmin=vmin, vmax=vmax)
         
         im.set_data(smap.data)
@@ -106,7 +125,7 @@ def multiframe_animation(kcor_map_ls: list, data_product_type: str):
     ani = FuncAnimation(fig, update_frame, frames=num_frames, interval=200)
 
     writer = FFMpegWriter(fps=5, metadata=dict(artist='SunPy'), bitrate=2000)
-    fname = 'kcor_'+data_product_type+'_frames_'+kcor_map_ls[0].date.strftime("%Y%m%d.%H%M%S")+'.mp4'
+    fname = 'kcor_'+data_product_type+'_frames_'+kcor_header_ls[0]['DATE-OBS']+'.mp4'
     ani.save(fname, writer=writer)
     plt.close(fig) # Closes the static image plot frame so it doesn't leak memory
     print(f"Finished, mp4 file saved: {fname}")
