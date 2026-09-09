@@ -76,8 +76,8 @@ def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data, kc
         
     # the diff images
     else: 
-        vmin = kcor.get('display_difference_min', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
-        vmax = kcor.get('display_difference_max', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
+        vmin = get('display_difference_min', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
+        vmax = get('display_difference_max', kcor_time_hst.strftime("%Y%m%d.%H%M%S"))
         gamma = 1.0
         kcor_map = Map(kcor_data, kcor_header)
         
