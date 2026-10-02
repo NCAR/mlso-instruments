@@ -676,7 +676,7 @@ def l1_normalization_parameters(wavelength: int, data_product: str):
         ionization = 'Fe XIII'
         
     # color table 
-    from ucomp_colortables2 import ucomp_loadct
+    #from ucomp_colortables2 import ucomp_loadct
     colortable_dict = {'I': 'intensity', 
                        'Q': 'quv', 
                        'U': 'quv', 
