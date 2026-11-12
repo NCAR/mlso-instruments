@@ -1,33 +1,47 @@
 # encoding: utf-8
 
+import copy 
+
+import sunpy 
 import astropy.io.fits as fits
 import numpy as np
 import matplotlib 
-import copy
-from astropy.time import Time
-import sunpy
-from sunpy.map import Map
 import matplotlib.pyplot as plt 
+
+from astropy.time import Time
+from sunpy.map import Map
 from matplotlib.colors import ListedColormap
 from matplotlib.colors import LinearSegmentedColormap
 
 def display_hdu(hdu: fits.hdu.image.ImageHDU):
-    """Display an extension of a UCoMP file.
+    """
+    Display an extension of a UCoMP file.
     """
     pass
 
-
 def display(filename: str, extension=None):
-    """Display an extension of a UCoMP file.
+    """
+    Display an extension of a UCoMP file.
     """
     with fits.open(filename) as file:
         # [TODO]: if needed, identify file type to get default extension
         display_hdu(file[extension])
 
+
 # --------------- level 2 displays ---------------------
 def _normalize_rgb_table(rgb):
     """
     Convert Nx3 uint8 or float RGB array to float 0–1.
+    
+    Parameters 
+    ----------
+    rbg: array 
+        Array of pixel values (can be 0-1 or 0-255). 
+
+    Returns 
+    -------
+    rbg: array
+        Scaled pixel values forced to be between 0-1. 
     """
     rgb = np.asarray(rgb, dtype=float)
     if rgb.max() > 1.0:
@@ -35,6 +49,17 @@ def _normalize_rgb_table(rgb):
     return rgb
 
 def make_ucomp_azimuth_cmap(ncolors=256):
+    """
+    Make custom colormap (cmap) for UCoMP azimuth product. 
+
+    Parameters 
+    ----------
+    ncolors: int, default 256 
+
+    Returns 
+    -------
+    cmap: matplotlib colormap 
+    """
     colors = [
         (0.00, "#000028"),
         (0.15, "#0A2880"),
@@ -53,6 +78,17 @@ def make_ucomp_azimuth_cmap(ncolors=256):
     return cmap
 
 def make_ucomp_radialazimuth_cmap(ncolors=256):
+    """
+    Make custom colormap (cmap) for UCoMP radial azimuth product.
+
+    Parameters
+    ----------
+    ncolors: int, default 256
+
+    Returns
+    -------
+    cmap: matplotlib colormap
+    """
     colors = [
         (0.00, "#23FC02"),
         (0.25, "#051AF9"),
@@ -70,10 +106,21 @@ def make_ucomp_radialazimuth_cmap(ncolors=256):
     cmap.set_bad("black")
     return cmap
 
-def makect(rgb_start, rgb_mid, rgb_end, ncolors=256):
+def makect(rgb_start: np.ndarray, rgb_mid: np.ndarray, rgb_end: np.ndarray, ncolors=256):
     """
-    Python equivalent of IDL mg_makect:
-      Create a 3-segment linear colormap from start → mid → end.
+    Python equivalent of IDL mg_makect, which creates a 3-segment linear colormap. 
+    
+    Parameters
+    ----------
+    rgb_start: array
+    rgb_mid: array 
+    rgb_end: array 
+    ncolors: int, default 256 
+
+    Returns 
+    -------
+    rgb: array 
+        Nx3 UINT8 RGB array. 
     """
     rgb_start = np.asarray(rgb_start, dtype=float)
     rgb_mid   = np.asarray(rgb_mid, dtype=float)
@@ -90,11 +137,20 @@ def makect(rgb_start, rgb_mid, rgb_end, ncolors=256):
     return (rgb * 255).astype(np.uint8)
 
 
-# Safe Colormap Registration
 def register_ucomp_colormap(rgb, name="ucomp_current"):
     """
     Registers the 'ucomp_current' colormap safely for all Matplotlib versions,
-    ensuring that SunPy Map() can access it through cmap='ucomp_current'.
+    which can then be accessed through cmap='ucomp_current'.
+
+    Parameters 
+    ----------
+    rgb: array 
+        Nx3 UINT8 RGB array, containing colormap to be registered.  
+    name: str, default "ucomp_current" 
+
+    Returns 
+    -------
+    cmap: matplotlib colormap 
     """
 
     # Normalize RGB into 0–1 floats
@@ -103,10 +159,6 @@ def register_ucomp_colormap(rgb, name="ucomp_current"):
         rgb /= 255.0
 
     cmap = ListedColormap(rgb, name="ucomp_current")
-    # print('setting bad to black')
-    # cmap.set_bad('black')
-
-    # ---- UNIVERSAL REGISTRATION ----
 
     # (1) New-style Matplotlib >=3.7 registry
     try:
@@ -134,17 +186,30 @@ def register_ucomp_colormap(rgb, name="ucomp_current"):
 def ucomp_loadct_rgb(rgb):
     """
     Equivalent to IDL ucomp_loadct_rgb: only registers the colormap.
+
+    Parameters 
+    ----------
+    rgb: array 
+        Nx3 UINT8 RGB array.
     """
     return register_ucomp_colormap(rgb, name="ucomp_current")
 
 
-def _load_builtin_matplotlib_table(index, ncolors=256):
+def _load_builtin_matplotlib_table(index: int, ncolors=256):
     """
-    Replacement for IDL loadct with fixed table indices.
-    We map IDL indices to matplotlib named colormaps.
+    Maps IDL loadct indices to matplotlib named colormaps. 
 
-    This is an approximation — IDL colortables 0,3,4,6,12,16
-    correspond broadly to widely used scientific colormaps.
+    Parameters
+    ---------- 
+    index: int 
+        Index for mapping back to IDL colortables, that match named colormaps 
+        in matplotlib (can be 0, 3, 4, 6, 12, or 16). 
+    ncolors: int, default 256 
+
+    Returns 
+    -------
+    rgb: matplotlib colortable 
+        Represented as Nx3 UINT8 RGB array. 
     """
     table_map = {
         0:  "gray",
@@ -162,7 +227,7 @@ def _load_builtin_matplotlib_table(index, ncolors=256):
 
 
 def ucomp_loadct(
-    name,
+    name: str,
     n_colors=256,
     band_color=None,
     band_location=None,
@@ -170,9 +235,22 @@ def ucomp_loadct(
     rgb_table=None,
 ):
     """
-    Main color-table loader, following IDL ucomp_loadct behavior.
-    Returns the RGB table (Nx3 uint8) and registers a colormap
-    unless rgb_table is provided as an output container variable.
+    Function to load matplotlib color tables created for UCoMP data products. 
+
+    Given a data product's name, this function will create a cmap "ucomp_current".
+    Made to mirror the ucomp_loadct IDL function in the pipeline. 
+
+    Parameters
+    ----------
+    name: str 
+        String specifying the name of the data product the color table will be used for. 
+    ncolors: int, default 256
+
+    Returns 
+    ------- 
+    rgb: matplotlib colortable 
+        This is a Nx3, UINT8 color map that is either custom made or uses a default map 
+        if possible. Registered under "ucomp_current". 
     """
 
     name = str(name).lower()
@@ -241,14 +319,21 @@ def ucomp_loadct(
 
 def l2_map(ucomp_filename: str, wavelength: int, data_product_type: str): 
     """ 
-    Function to grab ucomp_time and ucomp_map for Level 2 data product
-    Inputs: 
-        - ucomp_filename (str), found using mlso api
-        - wavelength (int), in nm 
-        - data_product_type (str), chosen from UCoMP data user's guide 
-    Outputs: 
-        - ucomp_time (datetime object)
-        - ucomp_map 
+    Determines the time and SunPy Map for a UCoMP Level 2 file.
+
+    Parameters
+    ----------
+    ucomp_filename: str
+    wavelength: int 
+    data_product_type: str 
+        Full list of data products for Level 2 can be found on the MLSO website or UCoMP tutorial notebook.
+
+    Returns
+    -------
+    ucomp_time: datetime object
+        Datetime of the observation from FITS file header.
+    ucomp_map: SunPy Map
+        Made using header and data from UCoMP file.
     """
 
     # Use the file name to create an astropy stamp
@@ -342,11 +427,25 @@ def l2_map(ucomp_filename: str, wavelength: int, data_product_type: str):
     
     return ucomp_time, ucomp_map
 
+
 def l2_normalization_parameters(wavelength: int, data_product_type: str): 
     """ 
-    Input: wavelength (int), data_product_type (str)
-    Output: display min, max, gamma, and power
-    Will also create a color table to be used called ucomp_current  
+    Gives Level 2 (l2) normalization parameters for a UCoMP data product given its wavelength.
+
+    Additionally creates a "global" matplotlib color table for the product called ucomp_current.
+
+    Parameters
+    ----------
+    wavelength: int
+    data_product: str
+        Full list of data products for Level 2 can be found on the MLSO website or UCoMP tutorial notebook.
+
+    Returns
+    -------
+    mapping: list of floats
+        The mapping contains the display min, max, gamma, and power.
+    rgb: matplotlib colormap
+        Creates the colormap "ucomp_current".
     """
     if data_product_type == 'Center wavelength intensity': # intensity 
         mapping = {530:  [0.3, 80.0, 0.7, 0.7],
@@ -537,15 +636,28 @@ def l2_normalization_parameters(wavelength: int, data_product_type: str):
         print('wavelength requested not in mapping, defaulting to 1074 values')
         return mapping[1074], rgb
 
+
 # --------------- level 1 displays ---------------------
 
 def l1_data(ucomp_filename: str):
     """
-    from a ucomp filename, construct: 
-    - list of IQUV datasets
-    - list of background datasets 
-    - list of wavelengths (default is three but may be more) 
-    - datetime object ucomp_time  
+    Extracts Level 1 datasets and related products from a Level 1 UCoMP file. 
+
+    Parameters 
+    ---------- 
+    ucomp_filename: str     
+
+    Returns 
+    -------
+    iquv_data: list 
+        List of IQUV datasets from the specified Level 1 FITS file, length corresponds
+        to the number of wavelengths present in the file.  
+    bkg_data: list 
+        Background data corresponding to IQUV datasets. 
+    wavelengths: list of floats 
+        Wavelengths corresponding to IQUV datasets (default is 3, but may be more). 
+    ucomp_time: datetime object 
+        Contrsucted from the observation data in FITS file header. 
     """
     with fits.open(ucomp_filename) as ucomp_hdul:
         ucomp_hdul.info()
@@ -569,11 +681,27 @@ def l1_data(ucomp_filename: str):
     
     return iquv_data, bkg_data, wavelengths, ucomp_time
 
+
 def l1_normalization_parameters(wavelength: int, data_product: str): 
     """
-    Input: wavelength (int), data_product (str) - I, Q, U, V, or B 
-    Output: display min, max, gamma, power, rgb, ionization 
-    Will also create a color table to be used called ucomp_current
+    Gives Level 1 (l1) normalization parameters for a UCoMP data product given its wavelength.  
+
+    Additionally creates a "global" matplotlib color table for the product called ucomp_current.
+
+    Parameters
+    ---------- 
+    wavelength: int
+    data_product: str 
+        Data product can be either I, Q, U, V, or B for Level 1 files. 
+
+    Returns 
+    -------
+    mapping: list of floats 
+        The mapping contains the display min, max, gamma, and power. 
+    rgb: matplotlib colormap 
+        Creates the colormap "ucomp_current". 
+    ionization: str 
+        String depicting the ionzation for the provided wavelength.  
     """
     if wavelength == 1074: 
         mapping = {'I': [0.0, 40.0, 0.7, 0.7], 
@@ -687,32 +815,64 @@ def l1_normalization_parameters(wavelength: int, data_product: str):
     return mapping[data_product], rgb, ionization 
         
 
-def signed_power(x, power):
+def signed_power(x: float, power: float):
     """
-    used to scale level 1 images appropriately (as close as possible to IDL) 
+    Applies signed power transformation (similar to IDL).  
+
+    Parameters 
+    ----------
+    x: float 
+    power: float 
     """
     return np.sign(x) * np.abs(x)**power
 
-def l1_scale_image(im, display_min, display_max, power):
+
+def l1_scale_image(im: np.ndarray, display_min: float, display_max: float, power: float):
     """
-    scale level 1 images 
-    Inputs: im (image, numpy array), display min, display max, and power
+    Scales UCoMP Level 1 image data based on display min and max values. 
+
+    Parameters 
+    ---------- 
+    img: numpy array 
+    display_min: float 
+    display_max: float 
+    power: float 
+
+    Returns 
+    ------- 
+    scaled: numpy array 
+        Scaled image data.  
     """
     vmin = signed_power(display_min, power)
     vmax = signed_power(display_max, power)
     scaled = np.clip((signed_power(im, power) - signed_power(vmin, power)) / (signed_power(vmax, power) - signed_power(vmin, power)), 0, 1)   
     return scaled
 
-def l1_mosiac_image(iquv_data, ucomp_time, wvs, wavelength, img_type):
+
+def l1_mosiac_image(iquv_data: list, ucomp_time, wvs: list[str], wavelength: int, img_type: str):
     """ 
-    Plot the mosaic of IQUV for varying wavelengths in level 1 data 
-    inputs: 
-    - iquv_data: list of datasets, pulled from l1_data
-    - ucomp_time: datetime object, pulled from l1_data 
-    - wvs: list of strings with wavelength names, pulled from l1_data 
-    - wavelength: int of wavelength used when searching for file 
-    - img_type: string, mean or median 
-    note: will plot up to 9 wavelengths, even if there are more in iquv_data
+    Plot the mosaic of IQUV for varying wavelengths found in a UCoMP Level 1 file.
+
+    Traditionally there will be three wavelengths, but this can change depending on the 
+    observation campaign. On the off chance there are more than 9 wavelengths in the file, 
+    only the central 9 will be plotted. 
+
+    Parameters 
+    ---------- 
+    iquv_data: list
+        List of IQUV data from Level 1 files. 
+    ucomp_time: datetime object
+        Observation date pulled from Level 1 header. 
+    wvs: list of strings 
+        Strings are wavelengths to be plotted. 
+    wavelength: int 
+        Wavelength used to search for UCoMP file. 
+    img_type: string
+        Either 'mean' or 'median'.  
+    
+    Returns 
+    -------
+    nothing, as image will be plotted in space once function is called. 
     """
     n_wavelengths = len(iquv_data) 
     if n_wavelengths < 10: 
@@ -757,15 +917,22 @@ def l1_mosiac_image(iquv_data, ucomp_time, wvs, wavelength, img_type):
     ax[0,0].text(0.05, 0.05, utc_string, rotation='horizontal', color = 'white', verticalalignment='center', fontsize=ftsz2, transform=ax[0,0].transAxes)
     plt.show()
 
+
 # --------------- level 3 displays ---------------------
 def l3_map(ucomp_filename: str):
     """
-    Function to grab ucomp_time and ucomp_map for Level 3 density
-    Inputs:
-        - ucomp_filename (str), found using mlso api
-    Outputs:
-        - ucomp_time (datetime object)
-        - ucomp_map
+    Determines the time and SunPy Map for a UCoMP Level 3 Density file.  
+
+    Parameters
+    ----------
+    ucomp_filename: str 
+    
+    Returns 
+    -------
+    ucomp_time: datetime object
+        Datetime of the observation from FITS file header. 
+    ucomp_map: SunPy Map 
+        Made using header and data from UCoMP file. 
     """
     with fits.open(ucomp_filename) as ucomp_hdul:
         ucomp_hdul.info()

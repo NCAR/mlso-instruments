@@ -1,17 +1,20 @@
 # encoding: utf-8
 
-import datetime
-from datetime import timedelta
 import os
-from typing import TypeVar
+import datetime 
+
 import epochs
 import numpy as np
 import matplotlib.pyplot as plt
 import imageio_ffmpeg
+
+from datetime import timedelta
+from typing import TypeVar
 from sunpy.map import Map
 from astropy.time import Time
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from astropy.visualization import ImageNormalize, PowerStretch, AsinhStretch
+
 plt.rcParams['animation.ffmpeg_path'] = imageio_ffmpeg.get_ffmpeg_exe() 
 
 # for epoch files to be read correctly 
@@ -25,21 +28,51 @@ if not os.path.exists(EPOCHS_SPEC):
 if not os.path.exists(EPOCHS_CFG):
     raise FileNotFoundError(f"Configuration file not found at: {EPOCHS_CFG}")
 
-
 ep = epochs.EpochConfigParser(EPOCHS_SPEC)
 ep.read(EPOCHS_CFG)
 ep.formats = ["%Y%m%d", "%Y%m%d.%H%M%S"] 
 
-def get(property_name, date: DateValue):
-    """Get property value for a given datetime."""
+def get(property_name: str, date: DateValue):
+    """
+    Returns property value from epoch file for a given datetime.
+    
+    Parameters
+    ----------
+    property_name: str
+        Name of parameter to pull from epoch file.  
+    date: DateValue 
+        
+    Returns 
+    -------
+    epoch value (type dependent on property_name) 
+    """
     return ep.get(property_name, date)
 
 # function to get the correct vmin, vmax, and scaled data for plotting 
 def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data, kcor_header):
     """ 
-    function for getting normalization plotting parameters for level 2 kcor data 
-    Input: data_product_type (str), kcor_time (datetime object from file header), kcor_data (array from file)
-    Output: display min, max, gamma 
+    Returns normalization parameters (for plotting) for Level 2 KCor data. 
+
+    Parameters
+    ----------
+    data_product_type: string 
+        Type of Level 2 data product one intends to plot.
+    kcor_time: datetime object 
+        Taken from KCor file header.
+    kcor_data: array? 
+        KCor data product taken from FITS file. 
+    kcor_header: FITS header 
+    
+    Returns 
+    ------- 
+    vmin: float 
+        Display minimum. 
+    vmax: float 
+        Display maximum.  
+    gamma: float
+        Used in gamma corection. 
+    kcor_map: sunpy Map 
+        Made from kcor_data (which may be modified based on data product) and header. 
     """
     display_factor = 1.0e6
 
@@ -87,10 +120,22 @@ def l2_normalization_parameters(data_product_type: str, kcor_time, kcor_data, kc
 
 def multiframe_animation(kcor_data_ls: list, kcor_header_ls: list, data_product_type: str): 
     """
-    function that takes numerous sequential kcor images and produces/saves an MP4
-    Inputs: kcor_data_ls (list of kcor data from fts), kcor_header_ls (list of kcor header from fts), data_product_type (str)
-    Outputs: fname (str, filename of saved .mp4) 
+    Make and save an MP4 of sequential KCor image files. 
+
+    Parameters 
+    ---------- 
+    kcor_data_ls: list 
+        List of KCor data from FITS files. 
+    kcor_header_ls: list 
+        List of KCor headers (corresponding to data) from FITS files. 
+    data_product_type: str 
+
+    Returns 
+    -------
+    fname: str
+        Filename of saved .mp4 file. 
     """
+    
     # standard structural setup
     d0 = kcor_data_ls[0]
     h0 = kcor_header_ls[0]
@@ -135,9 +180,20 @@ def multiframe_animation(kcor_data_ls: list, kcor_header_ls: list, data_product_
 
 def multiframe_composite_animation(kcor_map_ls: list, aia_map_ls: list, data_product_type: str):
     """
-    function that takes numerous sequential kcor images and AIA images, and produces/saves an MP4
-    Inputs: kcor_map_ls (list of kcor SunPy Maps), aia_map_ls (list of reprojected AIA maps), data_product_type (str)
-    Outputs: fname (str, filename of saved .mp4)
+    Make and save an MP4 of sequential KCor image files and AIA images in composite form.
+
+    arameters
+    ----------
+    kcor_map_ls: list 
+        List of Sunpy Maps created from KCor data and headers.
+    aia_map_ls: list
+        List of Sunpy Maps created from AIA files with close timestamps to KCor files. 
+    data_product_type: str
+
+    Returns
+    -------
+    fname: str
+        Filename of saved .mp4 file
     """
     if len(kcor_map_ls) != len(aia_map_ls):
         raise ValueError("kcor_map_ls and aia_map_ls must have equal length.")

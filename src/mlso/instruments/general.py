@@ -2,11 +2,21 @@
 
 import datetime
 
-
 def nearest_file(file_list: list[dict], start_date: str):
     """
-    given a list of files (file_list) and date string (start_date),
-    return the index of the nearest file in time
+    Determines the index of the nearest file in a provided list to the given start date. 
+
+    Parameters 
+    ----------
+    file_list: list of dictionaries 
+        Generated using MLSO api's client functionality 
+    start_date: string 
+        Time in which you want the closest file, in isoformat "yyyy-mm-ddThh:mm:ss" 
+   
+    Returns 
+    -------
+    closest_index: integer 
+        Index in file_list that has observation time closest to start_date 
     """
     time_strings = [file_list['files'][i]['date-obs'] for i in range(len(file_list['files']))]
     times = [datetime.datetime.fromisoformat(t) for t in time_strings]
